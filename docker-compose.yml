@@ -4,6 +4,8 @@ version: "3.9"
 services:
   mongo:
     image: "mongo:6.0.2-focal"
+    ports:
+      - "127.0.0.1:27017:27017"
     environment:
       MONGO_INITDB_ROOT_USERNAME: "unimore"
       MONGO_INITDB_ROOT_PASSWORD: "unimore"

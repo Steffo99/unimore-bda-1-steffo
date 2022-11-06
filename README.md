@@ -20,5 +20,10 @@ Per ricreare lo stesso ambiente di lavoro utilizzato, sarà necessario:
 
 2. Con un daemon Docker in esecuzione, e Docker Compose installato sulla macchina locale, "accendere" il progetto:
    ```console
-   # docker compose up 
+   # docker compose up -d
+   ```
+
+3. Con la [MongoDB Shell](https://www.mongodb.com/try/download/shell) installata sulla macchina locale, è possibile interfacciarsi al database con:
+   ```console
+   $ mongosh --username=unimore --password=unimore --authenticationDatabase=admin mongodb://127.0.0.1:27017/amazon
    ```
