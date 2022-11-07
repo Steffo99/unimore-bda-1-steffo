@@ -32,25 +32,25 @@ Per ricreare lo stesso ambiente di lavoro utilizzato, sarà necessario:
 
 ## Introduzione
 
-Sviluppando una applicazione o effettuando analisi su dati, si potrebbe aver bisogno di effettuare query su un database relative ai contenuti in linguaggio naturale di esso.
+Sviluppando una applicazione o effettuando analisi su dati, è possibile aver bisogno di effettuare query sul database relative ai contenuti di esso in linguaggio naturale.
 
-Ad esempio, su un database come quello Amazon, si potrebbe voler trovare i prodotti contenenti una parola o frase specifica all'interno della descrizione.
+Per comodità, MongoDB include funzionalità basilari per la ricerca in linguaggio naturale, in modo che i suoi utilizzatori possano usufruirne senza dover configurare un motore di ricerca esterno come [ElasticSearch](https://www.elastic.co/).
 
-Per comodità, potrebbe essere utile avere le funzionalità di base già disponibili su MongoDB, 
 
-Non effettuando confronti diretti tra i contenuti dei campi interrogati e i termini della query, non è possibile utilizzare gli indici comuni della collezione interrogata.
+### Il problema degli indici
 
-È invece necessario creare un indice apposito, detto *[Text Index](https://www.mongodb.com/docs/manual/core/index-text/)*, in grado di processare il contenuto in linguaggio naturale di uno o più campi di stringhe della collezione.
+Una richiesta molto comune che riguarda il testo naturale è trovare i documenti contenenti parole specifiche in uno o più campi: ad esempio, in una collezione di film, si potrebbe voler trovare quello con un determinato titolo.
+
+Non effettuando confronti diretti (`===`) tra i contenuti dei campi interrogati e i termini della query, non è possibile fare uso dei comuni indici usati per la ricerca binaria; è invece necessario un indice apposito, detto *[Text Index](https://www.mongodb.com/docs/manual/core/index-text/)*, in grado di processare correttamente le stringhe dei documenti nella collezione.
 
 
 ## Funzionamento generale del Text Index
 
-Ogni collezione può avere associato **un solo Text Index**, che può però coprire qualsiasi numero di suoi campi di testo.
-
-
 ### Creazione dell'indice
 
-Per creare un Text Index, è necessario invocare il metodo `.createIndex()` della collezione con un oggetto dove tutti le chiavi dei campi che si vogliono indicizzare sono mappate alla stringa `"text"`:
+Per creare un Text Index, è necessario invocare il metodo `.createIndex()` della collezione con un oggetto dove tutti le chiavi dei campi che si vogliono indicizzare sono mappate alla stringa `"text"`.
+
+Ogni collezione può avere associato **un solo Text Index**, che può però coprire qualsiasi numero di suoi campi di testo.
 
 ```javascript
 // Creazione di un Text Index su una collezione inventata
@@ -59,8 +59,6 @@ db.EXAMPLE.createIndex({
 })
 // -> "description_text"
 ```
-
-Tutti i documenti già presenti nella collezione vengono indicizzati al momento di creazione dell'indice, quindi l'operazione potrebbe richiedere un po' di tempo.
 
 ```javascript
 // Creazione di un Text Index multi-campo su una collezione inventata
@@ -131,9 +129,56 @@ db.EXAMPLE.createIndex(
 
 #### Preprocessing delle stringhe
 
-Le stringhe vengono preprocessate 
+Per operare efficacemente con il linguaggio naturale, è necessario effettuare alcune operazioni di preprocessing sulle stringhe in questione, trasformandole in insiemi di token.
 
-<!-- TODO -->
+> Ho scelto di considerare il contenuto e l'effetto di queste operazioni oltre lo scopo di questo testo, in quanto è stato ampiamente trattato in Gestione dell'Informazione alla triennale.
+
+MongoDB effettua queste operazioni a runtime, nello specifico:
+- quando si crea un nuovo Text Index, sono processate le stringhe di tutti i documenti già esistenti;
+- quando si inserisce un nuovo documento o se ne modifica uno già esistente, sono processate le sue stringhe;
+- quando si effettua un'interrogazione basata sul Text Index, sono processati i termini di essa.
+
+##### Lingua
+
+Perchè il preprocessing funzioni correttamente, è necessario conoscere la lingua utilizzata all'interno delle stringhe da processare.
+
+Essa può essere impostata a livello di collezione attraverso l'opzione `default_language` di `.createIndex()`:
+
+```javascript
+// Creazione di un Text Index con nome e pesi personalizzato
+db.EXAMPLE.createIndex(
+   {
+      title: "text",
+      description: "text",
+      context: "text",
+      comments: "text",
+   }, 
+   {
+      name: "english_text",
+      default_language: "english",
+   }
+)
+// -> "english_text"
+```
+
+È possibile sovrascrivere la lingua a livello di documento (anche innestato!) inserendo in esso la chiave `language`:
+
+```javascript
+({
+   // Questo documento sarà processato in italiano...
+   language: "italian",
+   title: "Il Miglior Manuale di MongoDB del Mondo",
+   description: "Un manuale di MongoDB in grado di insegnare a chiunque come fare query!",
+   translations: [
+      {
+         // Questo documento innestato sarà processato in inglese!
+         language: "english",
+         title: "The Best MongoDB Manual in the World",
+         description: "A MongoDB manual able to teach anyone how to construct queries!",
+      }
+   ]
+})
+```
 
 ### Interrogazione sull'indice
 
@@ -147,3 +192,35 @@ db.EXAMPLE.find({
    }
 })
 ```
+
+Circondando di virgolette doppie `"` un termine della ricerca, è possibile richiedere la presenza esatta di uno dato termine o frase all'interno del documento:
+
+```javascript
+// Cerca documenti che contengono le parole della stringa "La Mia Query" nei campi indicizzati, e che hanno SICURAMENTE la parola "Mia" da qualche parte
+db.EXAMPLE.find({
+   $text: {
+      $search: `La "Mia" Query`,
+   }
+})
+```
+
+```javascript
+// Cerca documenti che contengono esattamente la stringa "La Mia Query" nei campi indicizzati
+db.EXAMPLE.find({
+   $text: {
+      $search: `"La Mia Query"`,
+   }
+})
+```
+
+Prefissando un trattino `-` ad un termine è possibile filtrare i documenti che lo contengono:
+
+```javascript
+// Cerca documenti che contengono le parole della stringa "La Mia Query" nei campi indicizzati, e che hanno SICURAMENTE la parola "Mia" da qualche parte
+db.EXAMPLE.find({
+   $text: {
+      $search: `La Mia Query -Sua -Tua`,
+   }
+})
+```
+
