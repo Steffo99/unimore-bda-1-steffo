@@ -193,6 +193,8 @@ db.EXAMPLE.find({
 })
 ```
 
+#### Query speciali
+
 Circondando di virgolette doppie `"` un termine della ricerca, è possibile richiedere la presenza esatta di uno dato termine o frase all'interno del documento:
 
 ```javascript
@@ -224,3 +226,36 @@ db.EXAMPLE.find({
 })
 ```
 
+#### Query miste
+
+È possibile effettuare query `$text` assieme a query "normali", effettuando l'intersezione dei risultati:
+
+```javascript
+// Cerca documenti che siano libri e che contengano le parole della stringa "Tutto su MongoDB"
+db.EXAMPLE.find({
+   $text: {
+      $search: "Tutto su MongoDB",
+   },
+   type: "book",
+})
+```
+
+#### Punteggio
+
+Al fine di ordinare i documenti restituiti dalla query `$text`, a ciascuno di essi viene assegnato un punteggio, che dipende quanto ogni token di esso è rilevante alla richiesta effettuata, e, se specificati, dai pesi dell'indice interrogato.
+
+È possibile includere il punteggio nel contenuto dei documenti restituiti specificando l'oggetto `{$meta: "textScore"}` come valore di una delle chiavi di proiezione del metodo `.find()`.
+
+```javascript
+// Cerca documenti che contengano le parole della stringa "Tutto su MongoDB"
+db.EXAMPLE.find(
+   {
+      $text: {
+         $search: "Tutto su MongoDB",
+      },
+   },
+   {
+      score: {$meta: "textScore"}
+   }
+)
+```
