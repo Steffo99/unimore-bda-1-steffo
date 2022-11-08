@@ -71,6 +71,7 @@ db.EXAMPLE.createIndex({
 // -> "$**_text"
 ```
 
+
 #### Personalizzazione nome dell'indice
 
 Per indici multi-campo, è consigliabile specificare nelle opzioni di `.createIndex()` un nome attraverso il campo `name`, onde evitare il comportamento predefinito di MongoDB di concatenare i nomi dei campi che l'indice contiene:
@@ -90,6 +91,7 @@ db.EXAMPLE.createIndex(
 )
 // -> "example_text"
 ```
+
 
 #### Selezione pesi
 
@@ -116,6 +118,7 @@ db.EXAMPLE.createIndex(
 )
 // -> "better_example_text"
 ```
+
 
 #### Preprocessing delle stringhe
 
@@ -237,6 +240,7 @@ db.EXAMPLE.find({
 })
 ```
 
+
 #### Punteggio
 
 Al fine di ordinare i documenti restituiti dalla query `$text`, a ciascuno di essi viene assegnato un punteggio, che dipende quanto ogni token di esso è rilevante alla richiesta effettuata, e, se specificati, dai pesi dell'indice interrogato.
@@ -277,6 +281,7 @@ db.meta.createIndex(
    }
 )
 ```
+
 
 ### 0 - Creazione del Text Index sulla collezione `reviews`
 
