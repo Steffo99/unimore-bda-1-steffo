@@ -259,3 +259,93 @@ db.EXAMPLE.find(
    }
 )
 ```
+
+## Interrogazioni di esempio sul dataset Amazon
+
+### 0 - Creazione dell'indice sulla collezione Meta
+
+La collezione `meta` ha un solo campo in cui sono utilizzate stringhe con testo in linguaggio naturale: `description`.
+
+Pertanto, si crea un indice contenente solo quel campo specifico.
+
+```javascript
+db.meta.createIndex(
+   {
+      description: "text",
+   },
+   {
+      name: "meta_text",
+      default_language: "english",
+   }
+)
+```
+
+
+### 1 - Ricerca semplice
+
+Si desidera cercare all'interno della collezione il videogioco _[Terraria](https://store.steampowered.com/app/105600/Terraria/)_.
+
+Si effettua una query dove il termine "Terraria" viene cercato all'interno del Text Index.
+
+```javascript
+db.meta.findOne(
+   {
+      $text: {$search: "Terraria"}
+   }
+)
+```
+
+
+La query ha avuto successo ed ha restituito il prodotto che aspettato:
+
+<details>
+<summary>Risultato ottenuto</summary>
+
+```javascript
+({
+  _id: ObjectId("58adad4fb2d633c456578630"),
+  asin: '9941113300',
+  description: "Dig, fight, explore, build! Nothing is impossible in this action-packed adventure game. The world is your canvas and the ground itself is your paint. Grab your tools and go! You can do many things in Terraria: make weapons and fight off a variety of enemies in numerous biomes, dig deep underground to find accessories, money, and other useful things, gather wood, stone, ores, and other resources to create everything you need to make the world your own and defend it. Build a house, a fort, even a castle and people will move in to live there and perhaps even sell you different wares to assist you on your journey. But beware, there are even more challenges awaiting you. Are you up to the task? ? ??? Terraria: Collector's Edition Includes: ??? In game item ??? Trading cards ??? Poster ??? Product Features: ??? Sandbox play ??? Randomly generated worlds ??? Free content updates ??? Co-op and PvP multiplayer modes playable via internet ? System Requirements OS: Windows Xp, Vista, 7. Processor: 1.6 Ghz. Memory: 512MB. Hard Disk Space: 200MB. Video Card: 128mb Video Memory, capable of Shader Model 1.1. DirectX?: 9.0c or Greater.",
+  price: 19.78,
+  imUrl: 'http://ecx.images-amazon.com/images/I/51OZAkphvcL._SY300_.jpg',
+  related: {
+    also_viewed: [
+      'B00JQHU9RC', 'B00BU3ZLJQ', 'B00750FR6A',
+      'B00DBCGC9C', 'B00DUV027M', 'B003YEXO3Y',
+      'B00KVQYJR8', 'B003YEXO66', 'B00KVQYM2U',
+      'B00E7SB8WK', 'B00L5M2I34', 'B00F8KSX0G',
+      'B00KN1GBW2', 'B007PVHMCG', 'B00D5BGCUI',
+      'B00GEECDA6', 'B00J58RFD8', '054568515X',
+      'B00JIOMB60', 'B00DS5FBP8', '0545669936',
+      'B00HLV78GA', 'B00FEN164W', 'B00C6R5GHM',
+      '1438826486', 'B00L3GSIL8', 'B00E45ELGQ',
+      '1438832931', '1500164615', 'B00DOQCWF8',
+      'B00HLV78TW', 'B003YF51RA', 'B00KX95JLS',
+      'B00EJOCAYW', 'B00DOQD0U4', 'B00DOQCZM8',
+      '1405268425', '1405268417', 'B00DOQD0YK',
+      '1405267674', 'B00K0N9ARG', 'B00CHKEF7K',
+      'B00HSQS3IU', '1118537149', 'B00HYJNJNA',
+      'B00JRCHT8I', 'B00DOQCV9U', 'B00B0FV4FE',
+      'B00ENVS2KM', 'B00EJOCB4G', 'B00DOQCTWY'
+    ],
+    buy_after_viewing: [ 'B00JQHU9RC', 'B00BU3ZLJQ', '054568515X', '0545669936' ]
+  },
+  salesRank: { 'Video Games': 49227 },
+  categories: [ [ 'Video Games', 'PC', 'Games' ] ]
+})
+```
+
+</details>
+
+
+### 2 - 
+
+
+### 3 - 
+
+
+### 4 - 
+
+
+### 5 - 
+
