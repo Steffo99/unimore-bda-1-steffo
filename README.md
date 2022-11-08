@@ -13,21 +13,7 @@
 
 ## Premessa
 
-L'attività è stata svolta su MongoDB 6.0.2, attraverso il progetto [Docker Compose](https://docs.docker.com/compose/) allegato.
-
-Per ricreare lo stesso ambiente di lavoro utilizzato, sarà necessario:
-
-1. Inserire il file `metaexport.json` all'interno della cartella `seed`, non allegato per motivi di dimensioni.
-
-2. Con un daemon Docker in esecuzione, e Docker Compose installato sulla macchina locale, "accendere" il progetto:
-   ```console
-   # docker compose up -d
-   ```
-
-3. Con la [MongoDB Shell](https://www.mongodb.com/try/download/shell) installata sulla macchina locale, è possibile interfacciarsi al database con:
-   ```console
-   $ mongosh --username=unimore --password=unimore --authenticationDatabase=admin mongodb://127.0.0.1:27017/amazon
-   ```
+L'attività è stata svolta su MongoDB 6.0.2, attraverso la macchina virtuale predisposta su [Azure Labs](https://labs.azure.com/virtualmachines), `LabBDA2`.
 
 
 ## Introduzione
@@ -36,10 +22,14 @@ Sviluppando una applicazione o effettuando analisi su dati, è possibile aver bi
 
 Per comodità, MongoDB include funzionalità basilari per la ricerca in linguaggio naturale, in modo che i suoi utilizzatori possano usufruirne senza dover configurare un motore di ricerca esterno come [ElasticSearch](https://www.elastic.co/).
 
+Sono disponibili funzionalità di ricerca più avanzate, ma sono limitate al piano managed del database, [MongoDB Atlas](https://www.mongodb.com/pricing): esse non vengono prese in considerazione da questa relazione.
+
 
 ### Il problema degli indici
 
-Una richiesta molto comune che riguarda il testo naturale è trovare i documenti contenenti parole specifiche in uno o più campi: ad esempio, in una collezione di film, si potrebbe voler trovare quello con un determinato titolo.
+Quando si effettua una ricerca in linguaggio naturale su una collezione di documenti, solitamente si desidera trovare uno o più documenti dal contenuto più simile possibile al contenuto della richiesta effettuata.
+
+Ad esempio, in un database di film, si potrebbe voler trovare il film con uno specifico titolo, o con un termine specifico nella descrizione.
 
 Non effettuando confronti diretti (`===`) tra i contenuti dei campi interrogati e i termini della query, non è possibile fare uso dei comuni indici usati per la ricerca binaria; è invece necessario un indice apposito, detto *[Text Index](https://www.mongodb.com/docs/manual/core/index-text/)*, in grado di processare correttamente le stringhe dei documenti nella collezione.
 
@@ -131,12 +121,16 @@ db.EXAMPLE.createIndex(
 
 Per operare efficacemente con il linguaggio naturale, è necessario effettuare alcune operazioni di preprocessing sulle stringhe in questione, trasformandole in insiemi di token.
 
-> Ho scelto di considerare il contenuto e l'effetto di queste operazioni oltre lo scopo di questo testo, in quanto è stato ampiamente trattato in Gestione dell'Informazione alla triennale.
+Queste operazioni, su MongoDB, sono:
+1. tokenizzazione: le parole vengono separate, ripulite da punteggiatura e diacritici, e trasformate in _token_
+2. eliminazione delle stopwords: i token più comuni e insignificanti ai fini della ricerca, come le congiunzioni, vengono eliminati
+3. _opzionalmente_ stemming: i token vengono ridotti al loro prefisso, in modo che non ci sia disambiguazione tra singolari, plurali, maschili o femminili
 
-MongoDB effettua queste operazioni a runtime, nello specifico:
-- quando si crea un nuovo Text Index, sono processate le stringhe di tutti i documenti già esistenti;
-- quando si inserisce un nuovo documento o se ne modifica uno già esistente, sono processate le sue stringhe;
-- quando si effettua un'interrogazione basata sul Text Index, sono processati i termini di essa.
+Esse sono effettuate a runtime, nello specifico:
+- quando si crea un nuovo Text Index, sono preprocessate le stringhe di tutti i documenti già esistenti;
+- quando si inserisce un nuovo documento o se ne modifica uno già esistente, sono preprocessate le sue stringhe;
+- quando si effettua un'interrogazione basata sul Text Index, sono preprocessati i termini di essa.
+
 
 ##### Lingua
 
@@ -180,6 +174,7 @@ db.EXAMPLE.createIndex(
 })
 ```
 
+
 ### Interrogazione sull'indice
 
 Una volta creato l'indice, è possibile usarlo per effettuare interrogazioni di linguaggio naturale sulla collezione utilizzando i metodi della collezione `.find()` e le chiavi speciali `$text` e `$search`:
@@ -192,6 +187,7 @@ db.EXAMPLE.find({
    }
 })
 ```
+
 
 #### Query speciali
 
@@ -215,7 +211,7 @@ db.EXAMPLE.find({
 })
 ```
 
-Prefissando un trattino `-` ad un termine è possibile filtrare i documenti che lo contengono:
+Prefissando un trattino `-` ad un termine è possibile nascondere i documenti che lo contengono:
 
 ```javascript
 // Cerca documenti che contengono le parole della stringa "La Mia Query" nei campi indicizzati, e che hanno SICURAMENTE la parola "Mia" da qualche parte
@@ -225,6 +221,7 @@ db.EXAMPLE.find({
    }
 })
 ```
+
 
 #### Query miste
 
@@ -260,13 +257,14 @@ db.EXAMPLE.find(
 )
 ```
 
+
 ## Interrogazioni di esempio sul dataset Amazon
 
-### 0 - Creazione dell'indice sulla collezione Meta
+### 0 - Creazione del Text Index sulla collezione `meta`
 
 La collezione `meta` ha un solo campo in cui sono utilizzate stringhe con testo in linguaggio naturale: `description`.
 
-Pertanto, si crea un indice contenente solo quel campo specifico.
+Pertanto, si è creato un indice contenente solo quel campo specifico.
 
 ```javascript
 db.meta.createIndex(
@@ -280,10 +278,35 @@ db.meta.createIndex(
 )
 ```
 
+### 0 - Creazione del Text Index sulla collezione `reviews`
+
+La collezione `reviews` ha due campi di testo in linguaggio naturale: `summary`, il titolo della recensione, e `reviewText`, il contenuto completo della recensione.
+
+Quindi, si è eliminato l'indice pre-esistente `summary_text`, e si è creato un indice contenente quei due campi, dando peso maggiore al campo `summary`, più rilevante.
+
+```javascript
+db.reviews.dropIndex("summary_text")
+
+db.reviews.createIndex(
+   {
+      summary: "text",
+      reviewText: "text",
+   },
+   {
+      name: "reviews_text",
+      default_language: "english",
+      weights: {
+         summary: 2,
+         reviewText: 1,
+      }
+   }
+)
+```
+
 
 ### 1 - Ricerca semplice
 
-Si desidera cercare all'interno della collezione il videogioco _[Terraria](https://store.steampowered.com/app/105600/Terraria/)_.
+Si desidera cercare all'interno della collezione tutti i dati relativi al videogioco _[Terraria](https://store.steampowered.com/app/105600/Terraria/)_.
 
 Si effettua una query dove il termine "Terraria" viene cercato all'interno del Text Index.
 
@@ -295,8 +318,7 @@ db.meta.findOne(
 )
 ```
 
-
-La query ha avuto successo ed ha restituito il prodotto che aspettato:
+La query ha successo e restituisce un documento con le caratteristiche richieste, ma il dataset pare essere sporco: immagine e prezzo del prodotto si riferiscono a una copia del videogioco _[Minecraft](https://www.minecraft.net/en-us)_. 
 
 <details>
 <summary>Risultato ottenuto</summary>
@@ -338,14 +360,163 @@ La query ha avuto successo ed ha restituito il prodotto che aspettato:
 </details>
 
 
-### 2 - 
+### 2 - Ricerca mista
+
+Si desidera trovare tutte le recensioni negative (2 stelle o inferiore) relative a qualche tipo di gioco (contenenti la parola "game" in qualche campo).
+
+Si effettua la seguente query:
+
+```javascript
+db.reviews.find(
+   {
+      $text: {$search: "game"},
+      overall: {$lte: 2},
+   }
+)
+```
+
+La query ha successo, e restituisce 192139 documenti.
 
 
-### 3 - 
+### 3 - Aggregazione con ricerca speciale
+
+Si desidera trovare la posizione di ricerca media di prodotti riguardanti "Dungeons & Dragons" (e non con le parole Dungeons e Dragons nella descrizione).
+
+Si effettua la seguente aggregazione:
+
+```javascript
+db.meta.aggregate([
+   // Trova i documenti che contengono "Dungeons & Dragons"
+   {$match: {
+      $text: {$search: `"Dungeons & Dragons"`}
+   }},
+   // Trasforma il sottodocumento salesRank in un array
+   {$project: {
+      salesRank: {$objectToArray: "$salesRank"},
+   }},
+   // Effettua l'unwind dell'array
+   {$unwind: {
+      path: "$salesRank",
+   }},
+   // Raggruppa per categoria calcolando la media
+   {$group: {
+      _id: "$salesRank.k",
+      avg: {$avg: "$salesRank.v"},
+   }}
+])
+```
+
+L'aggregazione ha successo, e restituisce il seguente risultato:
+
+```javascript
+[
+   { _id: 'Video Games', avg: 30079.060606060608 },
+   { _id: 'Books', avg: 257210 },
+   { _id: 'Software', avg: 26086 }
+]
+```
+
+### 4 - Aggregazione con ricerca speciale e mista
+
+Si desidera trovare la posizione di ricerca media, minima e massima dei videogiochi contenenti il termine "Dante".
+
+Si effettua la seguente aggregazione:
+
+```javascript
+db.meta.aggregate([
+   // Trova i videogiochi che contengono il termine "Dante"
+   {$match: {
+      $text: {$search: "Dante"},
+      // Le categorie sono tuple di termini dal più generale al più specifico; per risolvere questa query è sufficiente che un termine qualsiasi sia "Video Games"
+      categories: {$elemMatch: {$elemMatch: {$eq: "Video Games"}}},
+   }},
+   // Trasforma il sottodocumento salesRank in un array
+   {$project: {
+      salesRank: {$objectToArray: "$salesRank"},
+   }},
+   // Effettua l'unwind dell'array salesRank
+   {$unwind: {
+      path: "$salesRank",
+   }},
+   // Raggruppa per categoria calcolando posizione minima, media e massima
+   {$group: {
+      _id: "$salesRank.k",
+      best: {$min: "$salesRank.v"},
+      avg: {$avg: "$salesRank.v"},
+      worst: {$max: "$salesRank.v"}
+   }}
+])
+```
+
+L'aggregazione ha successo, e restituisce il seguente risultato:
+
+```javascript
+[
+   {
+      _id: 'Video Games',
+      best: 2112,
+      avg: 17816.904761904763,
+      worst: 74608
+   }
+]
+```
 
 
-### 4 - 
+### 5 - Aggregazione con ricerca e lookup
 
+Si desidera trovare una bizzarra irregolarità statistica: trovare i dati dei 10 prodotti con le recensioni più alte, contando solo le recensioni in cui compare la parola "cringe".
 
-### 5 - 
+Si effettua la seguente query:
 
+```javascript
+db.reviews.aggregate([
+   // Trova le recensioni che contengono il termine "cringe"
+   {$match:
+      {$text: {$search: "cringe"}},
+   },
+   // Raggruppa le recensioni per codice prodotto, conteggiandole e calcolandone la valutazione media
+   {$group: {
+      _id: "$asin",
+      avgRating: {$avg: "$overall"},
+      reviewCount: {$sum: 1},
+   }},
+   // Scarta i prodotti che non hanno almeno 3 recensioni "cringe": avrebbero facilmente degli outliers
+   {$match: {
+      reviewCount: {$gte: 3},
+   }},
+   // Effettua il lookup dei dati completi dei prodotti attraverso l'asin
+   {$lookup: {
+      from: "meta",
+      localField: "_id",
+      foreignField: "asin",
+      as: "product",
+   }},
+   // Dato che nella collezione "meta" ci potrebbero essere più prodotti con lo stesso asin, effettua l'unwind dell'array dei prodotti trovati
+   {$unwind: {
+      path: "$product",
+   }},
+   // Mantieni solo i prodotti per cui è stato trovato un corrispondente nella tabella meta; ci sono tantissime non-corrispondenze
+   {$match: {
+      product: {$exists: true},
+   }},
+   // Ordina i prodotti per valutazione media decrescente
+   {$sort: {
+      avgRating: -1,
+   }},
+   // Mostra solo i 10 prodotti con valutazioni migliori
+   {$limit: 10},
+])
+```
+
+L'aggregazione ha successo, restituendo i seguenti prodotti come risultato:
+
+1. `0061461369` (5.0* da 4 recensioni)
+2. `0099496941` (5.0* da 4 recensioni)
+3. `0062108026` (5.0* da 4 recensioni)
+4. `0007423632` (5.0* da 3 recensioni)
+5. `0060392991` (5.0* da 8 recensioni)
+6. `0062115359` (5.0* da 3 recensioni)
+7. `0060890096` (5.0* da 4 recensioni)
+8. `0061713244` (5.0* da 3 recensioni)
+9. `0007386648` (4.9* da 11 recensioni)
+10. `0061448761` (4.8* da 4 recensioni)
