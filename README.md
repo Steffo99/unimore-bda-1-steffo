@@ -528,7 +528,7 @@ db.reviews.aggregate([
 ])
 ```
 
-L'aggregazione ha successo, restituendo la seguente "classifica":
+L'aggregazione ha successo, e restituisce la seguente "classifica":
 
 ```javascript
 [
