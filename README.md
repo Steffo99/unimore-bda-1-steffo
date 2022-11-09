@@ -22,16 +22,16 @@ Sviluppando una applicazione o effettuando analisi su dati, è possibile aver bi
 
 Per comodità, MongoDB include funzionalità basilari per la ricerca in linguaggio naturale, in modo che i suoi utilizzatori possano usufruirne senza dover configurare un motore di ricerca esterno come [ElasticSearch](https://www.elastic.co/).
 
-Sono disponibili funzionalità di ricerca più avanzate, ma sono limitate al piano managed del database, [MongoDB Atlas](https://www.mongodb.com/pricing): esse non saranno prese in considerazione da questa relazione.
+Esistono [funzionalità di ricerca più avanzate](https://www.mongodb.com/docs/atlas/atlas-search/atlas-search-overview/) basate su [Apache Lucene](https://lucene.apache.org/), ma sono limitate al piano managed (a pagamento) del database, [MongoDB Atlas](https://www.mongodb.com/pricing): esse non saranno trattate in questa relazione.
 
 
-### Il problema degli indici
+### Il problema degli indici comuni
 
-Quando si effettua una ricerca in linguaggio naturale su una collezione di documenti, solitamente si desidera trovare uno o più documenti dal contenuto più simile possibile al contenuto della richiesta effettuata.
+Quando si effettua una query in linguaggio naturale su una collezione di documenti, l'obiettivo è quello di trovare uno o più documenti dal contenuto più simile possibile al contenuto della richiesta effettuata: ad esempio, in un database di film, si potrebbe voler trovare un film con uno specifico titolo, o in cui compare un termine specifico nella descrizione.
 
-Ad esempio, in un database di film, si potrebbe voler trovare il film con uno specifico titolo, o con un termine specifico nella descrizione.
+Non effettuando confronti diretti (`"a" === "b"`) tra i contenuti dei campi interrogati e i termini della query, non è possibile effettuare una ricerca binaria sugli indici della collezione; è invece necessario utilizzare un indice apposito creato preventivamente detto *[Text Index](https://www.mongodb.com/docs/manual/core/index-text/)*, in grado di indicizzare correttamente le singole parole dei documenti nella collezione.
 
-Non effettuando confronti diretti (`===`) tra i contenuti dei campi interrogati e i termini della query, non è possibile fare uso dei comuni indici usati per la ricerca binaria; è invece necessario un indice apposito, detto *[Text Index](https://www.mongodb.com/docs/manual/core/index-text/)*, in grado di processare correttamente le stringhe dei documenti nella collezione.
+Essi usano strutture dati come le _posting list_, che catalogano i documenti all'interno dei quali appare un dato termine.
 
 
 ## Funzionamento generale del Text Index
@@ -125,9 +125,10 @@ db.EXAMPLE.createIndex(
 Per operare efficacemente con il linguaggio naturale, è necessario effettuare alcune operazioni di preprocessing sulle stringhe in questione, trasformandole in insiemi di token.
 
 Queste operazioni, su MongoDB, sono:
-1. tokenizzazione: le parole vengono separate, ripulite da punteggiatura e diacritici, e trasformate in _token_
-2. eliminazione delle stopwords: i token più comuni e insignificanti ai fini della ricerca, come le congiunzioni, vengono eliminati
-3. _opzionalmente_ stemming: i token vengono ridotti al loro prefisso, in modo che non ci sia disambiguazione tra singolari, plurali, maschili o femminili
+
+1. **tokenizzazione**: le parole vengono separate, ripulite da punteggiatura e diacritici, e trasformate in _token_
+2. **eliminazione delle stopwords**: i token più comuni e insignificanti ai fini della ricerca, come le congiunzioni, vengono eliminati
+3. **stemming**: i token vengono ridotti al loro prefisso, in modo che non ci sia disambiguazione tra singolari, plurali, maschili o femminili
 
 Esse sono effettuate a runtime, nello specifico:
 - quando si crea un nuovo Text Index, sono preprocessate le stringhe di tutti i documenti già esistenti;
@@ -174,6 +175,16 @@ db.EXAMPLE.createIndex(
          description: "A MongoDB manual able to teach anyone how to construct queries!",
       }
    ]
+})
+```
+
+È possibile disattivare l'eliminazione delle stopwords e lo stemming specificando la stringa `"none"` come lingua.
+
+```javascript
+({
+   // Questo documento sarà solo tokenizzato
+   language: "none",
+   code: "A21 B34 ZZZ56",
 })
 ```
 
@@ -313,7 +324,7 @@ db.reviews.createIndex(
 
 Si desidera cercare all'interno della collezione tutti i dati relativi al videogioco _[Terraria](https://store.steampowered.com/app/105600/Terraria/)_.
 
-Si effettua una query dove il termine "Terraria" viene cercato all'interno del Text Index.
+Si effettua una query di ricerca per il termine "Terraria":
 
 ```javascript
 db.meta.findOne(
@@ -324,9 +335,6 @@ db.meta.findOne(
 ```
 
 La query ha successo e restituisce un documento con le caratteristiche richieste, ma il dataset pare essere sporco: immagine e prezzo del prodotto si riferiscono a una copia del videogioco _[Minecraft](https://www.minecraft.net/en-us)_. 
-
-<details>
-<summary>Risultato ottenuto</summary>
 
 ```javascript
 ({
@@ -362,8 +370,6 @@ La query ha successo e restituisce un documento con le caratteristiche richieste
 })
 ```
 
-</details>
-
 
 ### 2 - Ricerca mista
 
@@ -385,7 +391,7 @@ La query ha successo, e restituisce 192139 documenti.
 
 ### 3 - Aggregazione con ricerca speciale
 
-Si desidera trovare la posizione di ricerca media di prodotti riguardanti "Dungeons & Dragons" (e non con le parole Dungeons e Dragons nella descrizione).
+Si desidera trovare il sales rank medio di prodotti riguardanti "Dungeons & Dragons" (e non con le parole Dungeons e Dragons nella descrizione).
 
 Si effettua la seguente aggregazione:
 
@@ -421,9 +427,9 @@ L'aggregazione ha successo, e restituisce il seguente risultato:
 ]
 ```
 
-### 4 - Aggregazione con ricerca speciale e mista
+### 4 - Aggregazione con ricerca mista
 
-Si desidera trovare la posizione di ricerca media, minima e massima dei videogiochi contenenti il termine "Dante".
+Si desidera trovare il sales rank medio, minimo e massimo dei videogiochi contenenti il termine "Dante".
 
 Si effettua la seguente aggregazione:
 
@@ -485,7 +491,7 @@ db.reviews.aggregate([
       avgRating: {$avg: "$overall"},
       reviewCount: {$sum: 1},
    }},
-   // Scarta i prodotti che non hanno almeno 3 recensioni "cringe": avrebbero facilmente degli outliers
+   // Scarta i prodotti che non hanno almeno 3 recensioni "cringe": sarebbero sicuramente degli outliers
    {$match: {
       reviewCount: {$gte: 3},
    }},
@@ -504,24 +510,87 @@ db.reviews.aggregate([
    {$match: {
       product: {$exists: true},
    }},
-   // Ordina i prodotti per valutazione media decrescente
+   // Effettua una proiezione per mantenere solo i campi a cui siamo interessati
+   {$project: {
+      _id: 1,
+      avgRating: 1,
+      reviewCount: 1,
+      title: "$product.title",
+   }},
+   // Ordina i prodotti per valutazione media decrescente, poi per numero di recensioni decrescente, e infine per ordine lessicale di ASIN, in modo da avere risultati deterministici
    {$sort: {
       avgRating: -1,
+      reviewCount: -1,
+      _id: 1,
    }},
    // Mostra solo i 10 prodotti con valutazioni migliori
    {$limit: 10},
 ])
 ```
 
-L'aggregazione ha successo, restituendo i seguenti prodotti come risultato:
+L'aggregazione ha successo, restituendo la seguente "classifica":
 
-1. `0061461369` (5.0* da 4 recensioni)
-2. `0099496941` (5.0* da 4 recensioni)
-3. `0062108026` (5.0* da 4 recensioni)
-4. `0007423632` (5.0* da 3 recensioni)
-5. `0060392991` (5.0* da 8 recensioni)
-6. `0062115359` (5.0* da 3 recensioni)
-7. `0060890096` (5.0* da 4 recensioni)
-8. `0061713244` (5.0* da 3 recensioni)
-9. `0007386648` (4.9* da 11 recensioni)
-10. `0061448761` (4.8* da 4 recensioni)
+```javascript
+[
+   {
+      _id: '0060392991',
+      avgRating: 5,
+      reviewCount: 8,
+      title: 'Mankind: Have a Nice Day - A Tale of Blood and Sweatsocks'
+   },
+   {
+      _id: '0060890096',
+      avgRating: 5,
+      reviewCount: 4,
+      title: 'Catch-22 CD'
+   },
+   {
+      _id: '0061461369',
+      avgRating: 5,
+      reviewCount: 4,
+      title: 'Jennifer Johnson Is Sick of Being Single: A Novel'
+   },
+   {
+      _id: '0062108026',
+      avgRating: 5,
+      reviewCount: 4,
+      title: 'Slow Getting Up: A Story of NFL Survival from the Bottom of the  Pile'
+   },
+   {
+      _id: '0099496941',
+      avgRating: 5,
+      reviewCount: 4,
+      title: 'All Quiet on the Western Front'
+   },
+   {
+      _id: '0007423632',
+      avgRating: 5,
+      reviewCount: 3,
+      title: 'Prince of Thorns (The Broken Empire)'
+   },
+   {
+      _id: '0061713244',
+      avgRating: 5,
+      reviewCount: 3,
+      title: 'The Longest Trip Home: A Memoir'
+   },
+   {
+      _id: '0062115359',
+      avgRating: 5,
+      reviewCount: 3,
+      title: 'Spin: A Novel'
+   },
+   {
+      _id: '0007386648',
+      avgRating: 4.909090909090909,
+      reviewCount: 11,
+      title: 'Unbroken'
+   },
+   {
+      _id: '0060838582',
+      avgRating: 4.75,
+      reviewCount: 8,
+      title: 'Fast Food Nation: The Dark Side of the All-American Meal'
+   }
+]
+```
