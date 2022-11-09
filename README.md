@@ -510,7 +510,7 @@ db.reviews.aggregate([
    {$match: {
       product: {$exists: true},
    }},
-   // Effettua una proiezione per mantenere solo i campi a cui siamo interessati
+   // Effettua una proiezione per mantenere solo i campi a cui si è interessati
    {$project: {
       _id: 1,
       avgRating: 1,
