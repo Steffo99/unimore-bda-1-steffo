@@ -1,4 +1,4 @@
-\[ **Stefano Pigozzi** | Attività #2 | Tema MongoDB | Big Data Analytics | A.A. 2022/2023 | Unimore \]
+\[ **Stefano Pigozzi** | Traccia #2 | Tema MongoDB | Big Data Analytics | A.A. 2022/2023 | Unimore \]
 
 # Ricerca in linguaggio naturale sul dataset Amazon
 
