@@ -205,10 +205,10 @@ db.EXAMPLE.find({
 
 #### Query speciali
 
-Circondando di virgolette doppie `"` un termine della ricerca, è possibile richiedere la presenza esatta di uno dato termine o frase all'interno del documento:
+Circondando di virgolette doppie `"` un termine della ricerca, è possibile richiedere la presenza sicura di uno dato termine o frase all'interno del documento:
 
 ```javascript
-// Cerca documenti che contengono le parole della stringa "La Mia Query" nei campi indicizzati, e che hanno SICURAMENTE la parola "Mia" da qualche parte
+// Cerca documenti che contengono le parole della stringa "La Mia Query" nei campi indicizzati, e che hanno sicuramente la parola "Mia" da qualche parte
 db.EXAMPLE.find({
    $text: {
       $search: `La "Mia" Query`,
@@ -228,7 +228,7 @@ db.EXAMPLE.find({
 Prefissando un trattino `-` ad un termine è possibile nascondere i documenti che lo contengono:
 
 ```javascript
-// Cerca documenti che contengono le parole della stringa "La Mia Query" nei campi indicizzati, e che hanno SICURAMENTE la parola "Mia" da qualche parte
+// Cerca documenti che contengono le parole della stringa "La Mia Query" nei campi indicizzati, e che non contengono le parole "Sua" o "Tua"
 db.EXAMPLE.find({
    $text: {
       $search: `La Mia Query -Sua -Tua`,
