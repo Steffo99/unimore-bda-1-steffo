@@ -22,7 +22,7 @@ Sviluppando una applicazione o effettuando analisi su dati, è possibile aver bi
 
 Per comodità, MongoDB include funzionalità basilari per la ricerca in linguaggio naturale, in modo che i suoi utilizzatori possano usufruirne senza dover configurare un motore di ricerca esterno come [ElasticSearch](https://www.elastic.co/).
 
-Sono disponibili funzionalità di ricerca più avanzate, ma sono limitate al piano managed del database, [MongoDB Atlas](https://www.mongodb.com/pricing): esse non vengono prese in considerazione da questa relazione.
+Sono disponibili funzionalità di ricerca più avanzate, ma sono limitate al piano managed del database, [MongoDB Atlas](https://www.mongodb.com/pricing): esse non saranno prese in considerazione da questa relazione.
 
 
 ### Il problema degli indici
